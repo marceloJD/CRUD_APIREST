@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.3/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.3/dist/sweetalert2.all.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    .content {
+      width: 100%;
+      height: 1000px; /* Altura de contenido de ejemplo */
+      background-color: #f9eee5;
+      padding: 50px;
+    }
+
+    .sidebar {
+      width: 300px;
+      background-color: #01b136;
+    }
+
+    .nav-item {
+      
+      width: 100%;
+    }
+
+    .nav-link {
+      width: 100%;
+      padding-left: 30px;
+      padding-bottom: 10px;
+      padding-top: 10px;
+      color: #fff;
+    }
+
+    .nav-link:hover {
+      background-color: #2b914a;
+      color: #fff;
+    }
+
+    .logo img {
+      width: 100px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    class ChartLine {
+        constructor(data, input, canvas, desdeInput, hastaInput, generar) {
+            this.data = data;
+            this.input = input;
+            this.canvas = canvas;
+            this.desdeInput = desdeInput;
+            this.hastaInput = hastaInput;
+            this.generar=generar;
+            this.chart = null;
+            this.generarGrafico() 
+            this.generar.addEventListener("click",()=>{
+                this.generarGrafico() 
+            });
+        }
+
+        generarGrafico() {
+            const vendedor = this.input.value;
+            const desde = new Date(this.desdeInput.value);
+            const hasta = new Date(this.hastaInput.value);
+
+            const datosFiltrados = this.data.filter((item) => {
+            return (
+                item.vendedor === vendedor &&
+                new Date(item.fecha) >= desde &&
+                new Date(item.fecha) <= hasta
+            );
+            });
+
+            const fechas = this.getFechasEnRango(desde, hasta);
+
+            datosFiltrados.sort((a, b) => {
+            return new Date(a.fecha) - new Date(b.fecha);
+            });
+
+            const labels = fechas.map((fecha) => {
+            return fecha.toISOString().split('T')[0];
+            });
+
+            const montos = fechas.map((fecha) => {
+            const dato = datosFiltrados.find((item) => {
+                return item.fecha === fecha.toISOString().split('T')[0];
+            });
+
+            return dato ? dato.monto : 0;
+            });
+
+            if (this.chart) {
+            this.chart.destroy();
+            }
+
+            const ctx = this.canvas.getContext('2d');
+            this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                {
+                    label: 'Monto',
+                    data: montos,
+                    backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 1,
+                },
+                ],
+            },
+            options: {
+              maintainAspectRatio: false,
+                responsive: true,
+                scales: {
+                x: {
+                    display: true,
+                    title: {
+                    display: true,
+                    text: 'Fechas',
+                    },
+                },
+                y: {
+                    display: true,
+                    title: {
+                    display: true,
+                    text: 'Monto',
+                    },
+                },
+                },
+            },
+            });
+        }
+
+        getFechasEnRango(desde, hasta) {
+            const fechas = [];
+            const fechaActual = new Date(desde);
+
+            while (fechaActual <= hasta) {
+            fechas.push(new Date(fechaActual));
+            fechaActual.setDate(fechaActual.getDate() + 1);
+            }
+
+            return fechas;
+        }
+    }
+  </script> 
+  <script>
+    class ChartPie {
+      constructor(canvas, data, button) {
+        this.canvas = canvas;
+        this.data = data;
+        this.button = button;
+        this.chart = null;
+        this.graficoActual = 'vendedor';
+        
+        this.init();
+      }
+      
+      init() {
+        this.generatePieChart();
+        this.bindButtonEvent();
+      }
+      
+      generatePieChart() {
+        const ctx = this.canvas.getContext('2d');
+        const chartData = this.getChartData();
+
+        this.chart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: chartData.labels,
+            datasets: [{
+              data: chartData.values,
+              backgroundColor: chartData.backgroundColor,
+              borderColor: chartData.borderColor,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            maintainAspectRatio: false,
+            responsive: true
+          }
+        });
+      }
+      
+      getChartData() {
+        const chartData = {};
+        
+        if (this.graficoActual === 'vendedor') {
+          chartData.labels = this.getVendedoresNames();
+          chartData.values = this.getVendedoresMontos();
+          chartData.backgroundColor = this.getRandomColors(chartData.labels.length);
+          chartData.borderColor = chartData.backgroundColor.map(color => color.replace('0.5', '1'));
+        } else {
+          chartData.labels = this.getProductosNames();
+          chartData.values = this.getProductosMontos();
+          chartData.backgroundColor = this.getRandomColors(chartData.labels.length);
+          chartData.borderColor = chartData.backgroundColor.map(color => color.replace('0.5', '1'));
+        }
+        
+        return chartData;
+      }
+      
+      getVendedoresNames() {
+        const vendedores = {};
+        
+        this.data.forEach(item => {
+          if (!vendedores[item.vendedor]) {
+            vendedores[item.vendedor] = 0;
+          }
+          vendedores[item.vendedor] += item.monto;
+        });
+        
+        return Object.keys(vendedores);
+      }
+      
+      getVendedoresMontos() {
+        const vendedores = {};
+        
+        this.data.forEach(item => {
+          if (!vendedores[item.vendedor]) {
+            vendedores[item.vendedor] = 0;
+          }
+          vendedores[item.vendedor] += item.monto;
+        });
+        
+        return Object.values(vendedores);
+      }
+      
+      getProductosNames() {
+        const productos = {};
+        
+        this.data.forEach(item => {
+          item.productos.forEach(producto => {
+            if (!productos[producto.nombre]) {
+              productos[producto.nombre] = 0;
+            }
+            productos[producto.nombre] += producto.monto;
+          });
+        });
+        
+        return Object.keys(productos);
+      }
+      
+      getProductosMontos() {
+        const productos = {};
+        
+        this.data.forEach(item => {
+          item.productos.forEach(producto => {
+            if (!productos[producto.nombre]) {
+              productos[producto.nombre] = 0;
+            }
+            productos[producto.nombre] += producto.monto;
+          });
+        });
+        
+        return Object.values(productos);
+      }
+      
+      getRandomColors(quantity) {
+        const colors = [];
+        
+        for (let i = 0; i < quantity; i++) {
+          const color = `rgba(${this.getRandomValue()}, ${this.getRandomValue()}, ${this.getRandomValue()}, 0.5)`;
+          colors.push(color);
+        }
+        
+        return colors;
+      }
+      
+      getRandomValue() {
+        return Math.floor(Math.random() * 256);
+      }
+      
+      bindButtonEvent() {
+        this.button.addEventListener('click', () => {
+          this.toggleChart();
+        });
+      }
+      
+      toggleChart() {
+        if (this.graficoActual === 'vendedor') {
+          this.graficoActual = 'producto';
+        } else {
+          this.graficoActual = 'vendedor';
+        }
+        
+        this.updateChart();
+      }
+      
+      updateChart() {
+        const chartData = this.getChartData();
+        
+        this.chart.data.labels = chartData.labels;
+        this.chart.data.datasets[0].data = chartData.values;
+        this.chart.data.datasets[0].backgroundColor = chartData.backgroundColor;
+        this.chart.data.datasets[0].borderColor = chartData.borderColor;
+        this.chart.update();
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="d-flex">
+    <nav id="sidebar" class=" sidebar">
+      <div >
+        <div class="logo">
+          <a href="#"><img src="/assets/3.png" alt="Logo" style="width:250px;"></a>
+        </div>
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a class="nav-link" href="./index.html">Productos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="./usuarios.html">Usuarios</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="./dashboard.html">Dashboard</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="content">
+      <div class="container">
+        <h1>Principales KPIS</h1>
+        <div class="row">
+          <div class="col">
+            <div class="card rounded h-100">
+              <div class="card-body d-flex flex-column justify-content-center">
+                <div class="row">
+                  <div class="col">
+                    <input type="text" class="form-control" id="vendedor" name="vendedor" placeholder="Nombre del vendedor">
+                  </div>
+                  <div class="col">
+                    <input type="date" class="form-control" id="desde" name="desde" placeholder="Desde">
+                  </div>
+                  <div class="col">
+                    <input type="date" class="form-control" id="hasta" name="hasta" placeholder="Hasta">
+                  </div>
+                  <div class="col">
+                    <button id="generar" class="btn btn-primary">Generar Gráfico</button>
+                  </div>
+                </div>
+                <div class="row mt-4 flex-grow-1">
+                  <div class="col d-flex align-items-center">
+                    <div id="grafico-container" style="width: 100%; height: 300px;">
+                      <canvas id="grafico" ></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-4">
+          <div class="col">
+            <div class="card rounded h-100">
+              <div class="card-body d-flex flex-column justify-content-center">
+                <div class="row">
+                  <div class="col">
+                    <button id="alternar-btn-grafico-torta" class="btn btn-primary">Alternar Gráfico</button>
+                  </div>
+                </div>
+                <div class="row mt-4 flex-grow-1">
+                  <div class="col d-flex align-items-center">
+                    <div id="grafico-container1" style="width: 100%;">
+                      <canvas id="grafico-torta"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card rounded h-100">
+              <div class="card-body d-flex flex-column justify-content-center">
+                <div class="row">
+                  <div class="col">
+                    <button id="alternar-btn-grafico-torta" class="btn btn-primary">Alternar Gráfico</button>
+                  </div>
+                </div>
+                <div class="row mt-4 flex-grow-1">
+                  <div class="col d-flex align-items-center">
+                    <div id="grafico-container2" style="width: 100%; ">
+                      <canvas id="grafico-torta2"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        
+        
+          
+        
+      
+        
+        <script>
+            const data = [
+            { 
+              vendedor: "Vendedor 1", 
+              fecha: "2023-06-01", 
+              monto: 50, 
+              productos: [
+                { nombre: "Producto A", monto: 20, cantidad: 3 },
+                { nombre: "Producto B", monto: 30, cantidad: 5 }
+              ]
+            },
+            { 
+              vendedor: "Vendedor 2", 
+              fecha: "2023-06-02", 
+              monto: 100, 
+              productos: [
+                { nombre: "Producto A", monto: 40, cantidad: 2 },
+                { nombre: "Producto C", monto: 60, cantidad: 4 }
+              ]
+            },
+            { 
+              vendedor: "Vendedor 1", 
+              fecha: "2023-06-03", 
+              monto: 75, 
+              productos: [
+                { nombre: "Producto B", monto: 50, cantidad: 1 },
+                { nombre: "Producto C", monto: 25, cantidad: 3 }
+              ]
+            },
+            { 
+              vendedor: "Vendedor 2", 
+              fecha: "2023-06-04", 
+              monto: 120, 
+              productos: [
+                { nombre: "Producto A", monto: 80, cantidad: 2 },
+                { nombre: "Producto B", monto: 40, cantidad: 4 }
+              ]
+            },
+            { 
+              vendedor: "Vendedor 1", 
+              fecha: "2023-06-05", 
+              monto: 90, 
+              productos: [
+                { nombre: "Producto A", monto: 60, cantidad: 3 },
+                { nombre: "Producto C", monto: 30, cantidad: 2 }
+              ]
+            }
+          ];
+
+
+
+            var input = document.getElementById('vendedor');
+            var desdeInput = document.getElementById('desde');
+            var hastaInput = document.getElementById('hasta');
+            var canvas = document.getElementById('grafico');
+            var generar = document.getElementById('generar');
+
+            var chart = new ChartLine(data, input, canvas, desdeInput, hastaInput,generar);
+
+            let graficoTorta = document.getElementById('grafico-torta')
+            let botonAlternarGraficoTorata=document.getElementById('alternar-btn-grafico-torta')
+
+            let chart2 = new ChartPie(graficoTorta, data, botonAlternarGraficoTorata);
+        </script>
+
+      </div>
+    </div>
+  </div>
+
+  
+</body>
+<script src="dashboard.js"></script>
+</html>

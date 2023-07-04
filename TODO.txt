@@ -1,0 +1,6 @@
+combo[X]
+foto de usuario[X]
+quitar modal[X]
+restricciones[X]
+usuarios [X]
+resportes [X]
